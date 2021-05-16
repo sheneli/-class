@@ -1,0 +1,951 @@
+//Import all packages for the class
+001: import java.awt.Dimension;
+002: import java.awt.Graphics;
+003: import java.io.*;
+004: import java.net.InetAddress;
+005: import java.text.DateFormat;
+006: import java.util.*;
+007: 
+008: import javax.swing.JEditorPane;
+009: import javax.swing.JFrame;
+010: import javax.swing.JScrollPane;
+011: 
+//Main Class of the program
+012: public class Aardvark {
+013: 
+014:   private String playerName;
+015:   public List<Domino> _d;
+016:   public List<Domino> _g;
+017:   public int[][] grid = new int[7][8];
+018:   public int[][] gg = new int[7][8];
+019:   int mode = -1;
+020:   int cf;
+021:   int score;
+022:   long startTime;
+023: 
+024:   PictureFrame pf = new PictureFrame();
+025: 
+//create a method for Generate dominoes and add to _d(domino list)
+//error will be displayed if the execution is unsuccessful
+026:   private void generateDominoes() {
+027:     _d = new LinkedList<Domino>();
+028:     int count = 0;
+029:     int x = 0;
+030:     int y = 0;
+031:     for (int l = 0; l <= 6; l++) {
+032:       for (int h = l; h <= 6; h++) {
+033:         Domino d = new Domino(h, l);
+034:         _d.add(d);
+035:         d.place(x, y, x + 1, y);
+036:         count++;
+037:         x += 2;
+038:         if (x > 6) {
+039:           x = 0;
+040:           y++;
+041:         }
+042:       }
+043:     }
+044:     if (count != 28) {
+045:       System.out.println("something went wrong generating dominoes");
+046:       System.exit(0);
+047:     }
+048:   }
+049: 
+//create a method generate guesses and add to _g(guesses list) 
+//error will be displayed if the execution is unsuccessful
+
+050:   private void generateGuesses() {
+051:     _g = new LinkedList<Domino>();
+052:     int count = 0;
+053:     int x = 0;
+054:     int y = 0;
+055:     for (int l = 0; l <= 6; l++) {
+056:       for (int h = l; h <= 6; h++) {
+057:         Domino d = new Domino(h, l);
+058:         _g.add(d);
+059:         count++;
+060:       }
+061:     }
+062:     if (count != 28) {
+063:       System.out.println("something went wrong generating dominoes");
+064:       System.exit(0);
+065:     }
+066:   }
+067: 
+//create a method for domino grid with _d list
+068:   void collateGrid() {
+069:     for (Domino d : _d) {
+070:       if (!d.placed) {
+071:         grid[d.hy][d.hx] = 9;
+072:         grid[d.ly][d.lx] = 9;
+073:       } else {
+074:         grid[d.hy][d.hx] = d.high;
+075:         grid[d.ly][d.lx] = d.low;
+076:       }
+077:     }
+078:   }
+079: 
+//create a method for  guess grid with _g list
+080:   void collateGuessGrid() {
+081:     for (int r = 0; r < 7; r++) {
+082:       for (int c = 0; c < 8; c++) {
+083:         gg[r][c] = 9;
+084:       }
+085:     }
+086:     for (Domino d : _g) {
+087:       if (d.placed) {
+088:         gg[d.hy][d.hx] = d.high;
+089:         gg[d.ly][d.lx] = d.low;
+090:       }
+091:     }
+092:   }
+093: 
+//printing the domino grid
+094:   int pg() {
+095:     for (int are = 0; are < 7; are++) {
+096:       for (int see = 0; see < 8; see++) {
+097:         if (grid[are][see] != 9) {
+098:           System.out.printf("%d", grid[are][see]);
+099:         } else {
+100:           System.out.print(".");
+101:         }
+102:       }
+103:       System.out.println();
+104:     }
+105:     return 11;
+106:   }
+107: 
+//printing the guess grid
+108:   int printGuessGrid() {
+109:     for (int are = 0; are < 7; are++) {
+110:       for (int see = 0; see < 8; see++) {
+111:         if (gg[are][see] != 9) {
+112:           System.out.printf("%d", gg[are][see]);
+113:         } else {
+114:           System.out.print(".");
+115:         }
+116:       }
+117:       System.out.println();
+118:     }
+119:     return 11;
+120:   }
+121: 
+//create a method to use to randomly shuffle dominoes
+122:   private void shuffleDominoesOrder() {
+123:     List<Domino> shuffled = new LinkedList<Domino>();
+124: 
+125:     while (_d.size() > 0) {
+126:       int n = (int) (Math.random() * _d.size());
+127:       shuffled.add(_d.get(n));
+128:       _d.remove(n);
+129:     }
+130: 
+131:     _d = shuffled;
+132:   }
+133: 
+// create a method to use to randomly invert dominoes
+134:   private void invertSomeDominoes() {
+135:     for (Domino d : _d) {
+136:       if (Math.random() > 0.5) {
+137:         d.invert();
+138:       }
+139:     }
+140:   }
+141: 
+//Place dominoes using place method in Domino class
+142:   private void placeDominoes() {
+143:     int x = 0;
+144:     int y = 0;
+145:     int count = 0;
+146:     for (Domino d : _d) {
+147:       count++;
+148:       d.place(x, y, x + 1, y);
+149:       x += 2;
+150:       if (x > 6) {
+151:         x = 0;
+152:         y++;
+153:       }
+154:     }
+155:     if (count != 28) {
+156:       System.out.println("something went wrong generating dominoes");
+157:       System.exit(0);
+158:     }
+159:   }
+160: 
+//Rotate all dominoes
+161:   private void rotateDominoes() {
+162:     // for (Domino d : dominoes) {
+163:     // if (Math.random() > 0.5) {
+164:     // System.out.println("rotating " + d);
+165:     // }
+166:     // }
+167:     for (int x = 0; x < 7; x++) {
+168:       for (int y = 0; y < 6; y++) {
+169: 
+170:         tryToRotateDominoAt(x, y);
+171:       }
+172:     }
+173:   }
+174: 
+//creating a method to rotate one domino
+175:   private void tryToRotateDominoAt(int x, int y) {
+176:     Domino d = findDominoAt(x, y);
+177:     if (thisIsTopLeftOfDomino(x, y, d)) {
+178:       if (d.ishl()) {
+179:         boolean weFancyARotation = Math.random() < 0.5;
+180:         if (weFancyARotation) {
+181:           if (theCellBelowIsTopLeftOfHorizontalDomino(x, y)) {
+182:             Domino e = findDominoAt(x, y + 1);
+183:             e.hx = x;
+184:             e.lx = x;
+185:             d.hx = x + 1;
+186:             d.lx = x + 1;
+187:             e.ly = y + 1;
+188:             e.hy = y;
+189:             d.ly = y + 1;
+190:             d.hy = y;I
+191:           }
+192:         }
+193:       } else {
+194:         boolean weFancyARotation = Math.random() < 0.5;
+195:         if (weFancyARotation) {
+196:           if (theCellToTheRightIsTopLeftOfVerticalDomino(x, y)) {
+197:             Domino e = findDominoAt(x + 1, y);
+198:             e.hx = x;
+199:             e.lx = x + 1;
+200:             d.hx = x;
+201:             d.lx = x + 1;
+202:             e.ly = y + 1;
+203:             e.hy = y + 1;
+204:             d.ly = y;
+205:             d.hy = y;
+206:           }
+207:         }
+208:
+209:      }
+210:     }
+211:   }
+212: 
+213:   private boolean theCellToTheRightIsTopLeftOfVerticalDomino(int x, int y) {
+214:     Domino e = findDominoAt(x + 1, y);
+215:     return thisIsTopLeftOfDomino(x + 1, y, e) && !e.ishl();
+216:   }
+217: 
+218:   private boolean theCellBelowIsTopLeftOfHorizontalDomino(int x, int y) {
+219:     Domino e = findDominoAt(x, y + 1);
+220:     return thisIsTopLeftOfDomino(x, y + 1, e) && e.ishl();
+221:   }
+222: 
+223:   private boolean thisIsTopLeftOfDomino(int x, int y, Domino d) {
+224:     return (x == Math.min(d.lx, d.hx)) && (y == Math.min(d.ly, d.hy));
+225:   }
+226: 
+//Find the domino at x position and  y position from list of dominoes
+227:   private Domino findDominoAt(int x, int y) {
+228:     for (Domino d : _d) {
+229:       if ((d.lx == x && d.ly == y) || (d.hx == x && d.hy == y)) {
+230:         return d;
+231:       }
+232:     }
+233:     return null;
+234:   }
+235: 
+//Find the guessed domino at x position and y position from list of guesses
+236:   private Domino findGuessAt(int x, int y) {
+237:     for (Domino d : _g) {
+238:       if ((d.lx == x && d.ly == y) || (d.hx == x && d.hy == y)) {
+239:         return d;
+240:       }
+241:     }
+242:     return null;
+243:   }
+244: 
+245:   private Domino findGuessByLH(int x, int y) {
+246:     for (Domino d : _g) {
+247:       if ((d.low == x && d.high == y) || (d.high == x && d.low == y)) {
+248:         return d;
+249:       }
+250:     }
+251:     return null;
+252:   }
+253: 
+254:   private Domino findDominoByLH(int x, int y) {
+255:     for (Domino d : _d) {
+256:       if ((d.low == x && d.high == y) || (d.high == x && d.low == y)) {
+257:         return d;
+258:       }
+259:     }
+260:     return null;
+261:   }
+262: 
+//Print each domino in dominoes list
+263:   private void printDominoes() {
+264:     for (Domino d : _d) {
+265:       System.out.println(d);
+266:     }
+267:   }
+268: 
+//Print each guessed domino from guesses list
+269:   private void printGuesses() {
+270:     for (Domino d : _g) {
+271:       System.out.println(d);
+272:     }
+273:   }
+274: 
+275:   public final int ZERO = 0;
+276: 
+//main method of the aardvark class to run the program
+277:   public void run() {
+//Create new object from IOSpecialist class
+278:     IOSpecialist io = new IOSpecialist();
+279: 
+//display a welcome messages using MultiLinugualStringTable class and get player name
+280:     System.out
+281:         .println("Welcome To Abominodo - The Best Dominoes Puzzle Game in the Universe");
+282:     System.out.println("Version 1.0 (c), Kevan Buckley, 2010");
+283:     System.out.println();
+284:     System.out.println(MultiLinugualStringTable.getMessage(0));
+285:     playerName = io.getString();
+286: 
+287:     System.out.printf("%s %s. %s", MultiLinugualStringTable.getMessage(1),
+288:         playerName, MultiLinugualStringTable.getMessage(2));
+289: 
+290:     int _$_ = -9;
+291:     while (_$_ != ZERO) {
+//Print menu options
+292:       System.out.println();
+293:       String h1 = "Main menu";
+294:       String u1 = h1.replaceAll(".", "=");
+295:       System.out.println(u1);
+296:       System.out.println(h1);
+297:       System.out.println(u1);
+298:       System.out.println("1) Play");
+299:       // System.out.println("1) Single player play");
+300:       System.out.println("2) View high scores");
+301:       System.out.println("3) View rules");
+302:       // System.out.println("4) Multiplayer play");
+303:       System.out.println("0) Quit");
+304: 
+305:       _$_ = -9;
+//Get menu selection from user
+306:       while (_$_ == -9) {
+307:         try {
+308:           String s1 = io.getString();
+309:           _$_ = Integer.parseInt(s1);
+310:         } catch (Exception e) {
+311:           _$_ = -9;
+312:         }
+313:       }
+//Use switch case to print outcome based on menu selection
+314:       switch (_$_) {
+//Case 0: Print messages for quitting game selection
+315:       case 0: {
+316:         if (_d == null) {
+317:           System.out.println("It is a shame that you did not want to play");
+318:         } else {
+319:           System.out.println("Thank you for playing");
+320:         }
+321:         System.exit(0);
+322:         break;
+323:       }
+//Case 1: Print options for Difficulty levels
+324:       case 1: {
+325:         System.out.println();
+326:         String h4 = "Select difficulty";
+327:         String u4 = h4.replaceAll(".", "=");
+328:         System.out.println(u4);
+329:         System.out.println(h4);
+330:         System.out.println(u4);
+331:         System.out.println("1) Simples");
+332:         System.out.println("2) Not-so-simples");
+333:         System.out.println("3) Super-duper-shuffled");
+334:         int c2 = -7;
+335:         while (!(c2 == 1 || c2 == 2 || c2 == 3)) {
+336:           try {
+337:             String s2 = io.getString();
+338:             c2 = Integer.parseInt(s2);
+339:           } catch (Exception e) {
+340:             c2 = -7;
+341:           }
+342:         }
+//take user input and rotate the dominoes according to difficulty level
+//level 1: No rotation
+//level 2: One rotation
+//level 3: Three rotations and inverse
+343:         switch (c2) {
+344:         case 1:
+345:           generateDominoes();
+346:           shuffleDominoesOrder();
+347:           placeDominoes();
+348:           collateGrid();
+349:           // printGrid();
+350:           break;
+351:         case 2:
+352:           generateDominoes();
+353:           shuffleDominoesOrder();
+354:           placeDominoes();
+355:           rotateDominoes();
+356:           collateGrid();
+357:           // printGrid();
+358:           break;
+359:         default:
+360:           generateDominoes();
+361:           shuffleDominoesOrder();
+362:           placeDominoes();
+363:           rotateDominoes();
+364:           rotateDominoes();
+365:           rotateDominoes();
+366:           invertSomeDominoes();
+367:           collateGrid();
+368:           break;
+369:         }
+//Print grid, generate guesses and start timer
+370:         pg();
+371:         generateGuesses();
+372:         collateGuessGrid();
+373:         mode = 1;
+374:         cf = 0;
+375:         score = 0;
+376:         startTime = System.currentTimeMillis();
+377:         pf.PictureFrame(this);
+378:         pf.dp.repaint();
+//Print menu options for playing the game
+379:         int c3 = -7;
+380:         while (c3 != ZERO) {
+381:           System.out.println();
+382:           String h5 = "Play menu";
+383:           String u5 = h5.replaceAll(".", "=");
+384:           System.out.println(u5);
+385:           System.out.println(h5);
+386:           System.out.println(u5);
+387:           System.out.println("1) Print the grid");
+388:           System.out.println("2) Print the box");
+389:           System.out.println("3) Print the dominos");
+390:           System.out.println("4) Place a domino");
+391:           System.out.println("5) Unplace a domino");
+392:           System.out.println("6) Get some assistance");
+393:           System.out.println("7) Check your score");
+394:           System.out.println("0) Given up");
+395:           System.out.println("What do you want to do " + playerName + "?");
+396:           c3 = 9;
+397:           // make sure the user enters something valid
+398:           while (!((c3 == 1 || c3 == 2 || c3 == 3)) && (c3 != 4)
+399:               && (c3 != ZERO) && (c3 != 5) && (c3 != 6) && (c3 != 7)) {
+400:             try {
+401:               String s3 = io.getString();
+402:               c3 = Integer.parseInt(s3);
+403:             } catch (Exception e) {
+404:               c3 = gecko(55);
+405:             }
+406:           }
+407:           switch (c3) {
+//Given up
+408:           case 0:
+409: 
+410:             break;
+//Print the grid
+411:           case 1:
+412:             pg();
+413:             break;
+//Print the box
+414:           case 2:
+415:             printGuessGrid();
+416:             break;
+//Print the dominoes
+417:           case 3:
+418:             Collections.sort(_g);
+419:             printGuesses();
+420:             break;
+//Place a domino
+421:           case 4:
+422:             System.out.println("Where will the top left of the domino be?");
+//Get column value where domino is supposed to be
+423:             System.out.println("Column?");
+424: 
+425:             int x = gecko(99);
+426:             while (x < 1 || x > 8) {
+427:               try {
+428:                 String s3 = io.getString();
+429:                 x = Integer.parseInt(s3);
+430:               } catch (Exception e) {
+431:                 System.out.println("Bad input");
+432:                 x = gecko(65);
+433:               }
+434:             }
+//Get row value where domino should be place
+435:             System.out.println("Row?");
+436:             int y = gecko(98);
+437:             while (y < 1 || y > 7) {
+438:               try {
+439:                 String s3 = io.getString();
+440:                 y = Integer.parseInt(s3);
+441:               } catch (Exception e) {
+442:                 System.out.println("Bad input");
+443:                 y = gecko(64);
+444:               }
+445:             }
+446:             x--;
+447:             y--;
+//Get placement of domino (Horizontal or Vertical)
+448:             System.out.println("Horizontal or Vertical (H or V)?");
+449:             boolean horiz;
+450:             int y2,
+451:             x2;
+452:             Location lotion;
+//Use location class to get direction and place domino
+453:             while ("AVFC" != "BCFC") {
+454:               String s3 = io.getString();
+//Horizontal
+455:               if (s3 != null && s3.toUpperCase().startsWith("H")) {
+456:                 lotion = new Location(x, y, Location.DIRECTION.HORIZONTAL);
+457:                 System.out.println("Direction to place is " + lotion.d);
+458:                 horiz = true;
+459:                 x2 = x + 1;
+460:                 y2 = y;
+461:                 break;
+462:               }
+//Vertical
+463:               if (s3 != null && s3.toUpperCase().startsWith("V")) {
+464:                 horiz = false;
+465:                 lotion = new Location(x, y, Location.DIRECTION.VERTICAL);
+466:                 System.out.println("Direction to place is " + lotion.d);
+467:                 x2 = x;
+468:                 y2 = y + 1;
+469:                 break;
+470:               }
+471:               System.out.println("Enter H or V");
+472:             }
+473:             if (x2 > 7 || y2 > 6) {
+474:               System.out
+475:                   .println("Problems placing the domino with that position and direction");
+476:             } else {
+477:               // find which domino this could be
+478:               Domino d = findGuessByLH(grid[y][x], grid[y2][x2]);
+479:               if (d == null) {
+480:                 System.out.println("There is no such domino");
+481:                 break;
+482:               }
+483:               // check if the domino has not already been placed
+484:               if (d.placed) {
+485:                 System.out.println("That domino has already been placed :");
+486:                 System.out.println(d);
+487:                 break;
+488:               }
+489:               // check guessgrid to make sure the space is vacant
+490:               if (gg[y][x] != 9 || gg[y2][x2] != 9) {
+491:                 System.out.println("Those coordinates are not vacant");
+492:                 break;
+493:               }
+494:               // if all the above is ok, call domino.place and updateGuessGrid
+495:               gg[y][x] = grid[y][x];
+496:               gg[y2][x2] = grid[y2][x2];
+497:               if (grid[y][x] == d.high && grid[y2][x2] == d.low) {
+498:                 d.place(x, y, x2, y2);
+499:               } else {
+500:                 d.place(x2, y2, x, y);
+501:               }
+502:               score += 1000;
+503:               collateGuessGrid();
+504:               pf.dp.repaint();
+505:             }
+506:             break;
+
+//Unplaced a domino
+507:           case 5:
+508:             System.out.println("Enter a position that the domino occupies");
+//Get column value where domino is already posititioned
+509:             System.out.println("Column?");
+510: 
+511:             int x13 = -9;
+512:             while (x13 < 1 || x13 > 8) {
+513:               try {
+514:                 String s3 = io.getString();
+515:                 x13 = Integer.parseInt(s3);
+516:               } catch (Exception e) {
+517:                 x13 = -7;
+518:               }
+519:             }
+//Get row value where domino is already positioned
+520:             System.out.println("Row?");
+521:             int y13 = -9;
+522:             while (y13 < 1 || y13 > 7) {
+523:               try {
+524:                 String s3 = io.getString();
+525:                 y13 = Integer.parseInt(s3);
+526:               } catch (Exception e) {
+527:                 y13 = -7;
+528:               }
+529:             }
+530:             x13--;
+531:             y13--;
+//Find domino using position
+532:             Domino lkj = findGuessAt(x13, y13);
+533:             if (lkj == null) {
+534:               System.out.println("Couln't find a domino there");
+535:             } else {
+536:               lkj.placed = false;
+537:               gg[lkj.hy][lkj.hx] = 9;
+538:               gg[lkj.ly][lkj.lx] = 9;
+539:               score -= 1000;
+540:               collateGuessGrid();
+541:               pf.dp.repaint();
+542:             }
+543:             break;
+//Check your score option
+544:           case 7:
+545:             System.out.printf("%s your score is %d\n", playerName, score);
+546:             break;
+//Get some assistance option
+547:           case 6:
+//Print cheating options and get user input
+548:             System.out.println();
+549:             String h8 = "So you want to cheat, huh?";
+550:             String u8 = h8.replaceAll(".", "=");
+551:             System.out.println(u8);
+552:             System.out.println(h8);
+553:             System.out.println(u8);
+554:             System.out.println("1) Find a particular Domino (costs you 500)");
+555:             System.out.println("2) Which domino is at ... (costs you 500)");
+556:             System.out.println("3) Find all certainties (costs you 2000)");
+557:             System.out.println("4) Find all possibilities (costs you 10000)");
+558:             System.out.println("0) You have changed your mind about cheating");
+559:             System.out.println("What do you want to do?");
+560:             int yy = -9;
+561:             while (yy < 0 || yy > 4) {
+562:               try {
+563:                 String s3 = io.getString();
+564:                 yy = Integer.parseInt(s3);
+565:               } catch (Exception e) {
+566:                 yy = -7;
+567:               }
+568:             }
+//You have changed your mind about cheating option
+569:             switch (yy) {
+570:             case 0:
+//cf is initially 0
+571:               switch (cf) {
+//3 bonus points received but cf increases by 1
+572:               case 0:
+573:                 System.out.println("Well done");
+574:                 System.out.println("You get a 3 point bonus for honesty");
+575:                 score++;
+576:                 score++;
+577:                 score++;
+578:                 cf++;
+579:                 break;
+//When user tries to get 3 bonus points again, score is reduced and cf is incremented again
+580:               case 1:
+581:                 System.out
+582:                     .println("So you though you could get the 3 point bonus twice");
+583:                 System.out.println("You need to check your score");
+584:                 if (score > 0) {
+585:                   score = -score;
+586:                 } else {
+587:                   score -= 100;
+588:                 }
+589:                 playerName = playerName + "(scoundrel)";
+590:                 cf++;
+591:                 break;
+//When user tries to get 3 bonus points for more than 2 times, score is reduced by a large amount
+592:               default:
+593:                 System.out.println("Some people just don't learn");
+594:                 playerName = playerName.replace("scoundrel",
+595:                     "pathetic scoundrel");
+596:                 for (int i = 0; i < 10000; i++) {
+597:                   score--;
+598:                 }
+599:               }
+600:               break;
+//Find a particular domino option
+601:             case 1:
+602:               score -= 500;
+603:               System.out.println("Which domino?");
+604:               System.out.println("Number on one side?");
+605:               int x4 = -9;
+606:               while (x4 < 0 || x4 > 6) {
+607:                 try {
+608:                   String s3 = io.getString();
+609:                   x4 = Integer.parseInt(s3);
+610:                 } catch (Exception e) {
+611:                   x4 = -7;
+612:                 }
+613:               }
+614:               System.out.println("Number on the other side?");
+615:               int x5 = -9;
+616:               while (x5 < 0 || x5 > 6) {
+617:                 try {
+618:                   String s3 = IOLibrary.getString();
+619:                   x5 = Integer.parseInt(s3);
+620:                 } catch (Exception e) {
+621:                   x5 = -7;
+622:                 }
+623:               }
+624:               Domino dd = findDominoByLH(x5, x4);
+625:               System.out.println(dd);
+626: 
+627:               break;
+628:             case 2:
+629:               score -= 500;
+630:               System.out.println("Which location?");
+//Get location of the domino and find domino
+631:               System.out.println("Column?");
+632:               int x3 = -9;
+633:               while (x3 < 1 || x3 > 8) {
+634:                 try {
+635:                   String s3 = IOLibrary.getString();
+636:                   x3 = Integer.parseInt(s3);
+637:                 } catch (Exception e) {
+638:                   x3 = -7;
+639:                 }
+640:               }
+641:               System.out.println("Row?");
+642:               int y3 = -9;
+643:               while (y3 < 1 || y3 > 7) {
+644:                 try {
+645:                   String s3 = IOLibrary.getString();
+646:                   y3 = Integer.parseInt(s3);
+647:                 } catch (Exception e) {
+648:                   y3 = -7;
+649:                 }
+650:               }
+651:               x3--;
+652:               y3--;
+653:               Domino lkj2 = findDominoAt(x3, y3);
+654:               System.out.println(lkj2);
+655:               break;
+//Find all certainties
+656:             case 3: {
+657:               score -= 2000;
+658:               HashMap<Domino, List<Location>> map = new HashMap<Domino, List<Location>>();
+659:               for (int r = 0; r < 6; r++) {
+660:                 for (int c = 0; c < 7; c++) {
+661:                   Domino hd = findGuessByLH(grid[r][c], grid[r][c + 1]);
+662:                   Domino vd = findGuessByLH(grid[r][c], grid[r + 1][c]);
+663:                   List<Location> l = map.get(hd);
+664:                   if (l == null) {
+665:                     l = new LinkedList<Location>();
+666:                     map.put(hd, l);
+667:                   }
+668:                   l.add(new Location(r, c));
+669:                   l = map.get(vd);
+670:                   if (l == null) {
+671:                     l = new LinkedList<Location>();
+672:                     map.put(vd, l);
+673:                   }
+674:                   l.add(new Location(r, c));
+675:                 }
+676:               }
+677:               for (Domino key : map.keySet()) {
+678:                 List<Location> locs = map.get(key);
+679:                 if (locs.size() == 1) {
+680:                   Location loc = locs.get(0);
+681:                   System.out.printf("[%d%d]", key.high, key.low);
+682:                   System.out.println(loc);
+683:                 }
+684:               }
+685:               break;
+686:             }
+687: 
+//Find all possibilities
+688:             case 4: {
+689:               score -= 10000;
+690:               HashMap<Domino, List<Location>> map = new HashMap<Domino, List<Location>>();
+691:               for (int r = 0; r < 6; r++) {
+692:                 for (int c = 0; c < 7; c++) {
+693:                   Domino hd = findGuessByLH(grid[r][c], grid[r][c + 1]);
+694:                   Domino vd = findGuessByLH(grid[r][c], grid[r + 1][c]);
+695:                   List<Location> l = map.get(hd);
+696:                   if (l == null) {
+697:                     l = new LinkedList<Location>();
+698:                     map.put(hd, l);
+699:                   }
+700:                   l.add(new Location(r, c));
+701:                   l = map.get(vd);
+702:                   if (l == null) {
+703:                     l = new LinkedList<Location>();
+704:                     map.put(vd, l);
+705:                   }
+706:                   l.add(new Location(r, c));
+707:                 }
+708:               }
+709:               for (Domino key : map.keySet()) {
+710:                 System.out.printf("[%d%d]", key.high, key.low);
+711:                 List<Location> locs = map.get(key);
+712:                 for (Location loc : locs) {
+713:                   System.out.print(loc);
+714:                 }
+715:                 System.out.println();
+716:               }
+717:               break;
+718:             }
+719:             }
+720:           }
+721: 
+722:         }
+//PictureFrame
+//Finish game and calculate time taken
+723:         mode = 0;
+724:         pg();
+725:         pf.dp.repaint();
+726:         long now = System.currentTimeMillis();
+727:         try {
+728:           Thread.sleep(1000);
+729:         } catch (InterruptedException e) {
+730:           // TODO Auto-generated catch block
+731:           e.printStackTrace();
+732:         }
+//Add bonus, store the score and print solution
+733:         int gap = (int) (now - startTime);
+734:         int bonus = 60000 - gap;
+735:         score += bonus > 0 ? bonus / 1000 : 0;
+736:         recordTheScore();
+737:         System.out.println("Here is the solution:");
+738:         System.out.println();
+739:         Collections.sort(_d);
+740:         printDominoes();
+741:         System.out.println("you scored " + score);
+742: 
+743:       }
+744:         break;
+//View high scores
+745:       case 2: {
+746:         String h4 = "High Scores";
+747:         String u4 = h4.replaceAll(".", "=");
+748:         System.out.println(u4);
+749:         System.out.println(h4);
+750:         System.out.println(u4);
+//Read scores file
+751: 
+752:         File f = new File("score.txt");
+753:         if (!(f.exists() && f.isFile() && f.canRead())) {
+754:           System.out.println("Creating new score table");
+755:           try {
+756:             PrintWriter pw = new PrintWriter(new FileWriter("score.txt", true));
+757:             String n = playerName.replaceAll(",", "_");
+758:             pw.print("Hugh Jass");
+759:             pw.print(",");
+760:             pw.print(1500);
+761:             pw.print(",");
+762:             pw.println(1281625395123L);
+763:             pw.print("Ivana Tinkle");
+764:             pw.print(",");
+765:             pw.print(1100);
+766:             pw.print(",");
+767:             pw.println(1281625395123L);
+768:             pw.flush();
+769:             pw.close();
+770:           } catch (Exception e) {
+771:             System.out.println("Something went wrong saving scores");
+772:           }
+773:         }
+774:         try {
+775:           DateFormat ft = DateFormat.getDateInstance(DateFormat.LONG);
+776:           BufferedReader r = new BufferedReader(new FileReader(f));
+777:           while (5 / 3 == 1) {
+778:             String lin = r.readLine();
+779:             if (lin == null || lin.length() == 0)
+780:               break;
+781:             String[] parts = lin.split(",");
+782:             System.out.printf("%20s %6s %s\n", parts[0], parts[1], ft
+783:                 .format(new Date(Long.parseLong(parts[2]))));
+784: 
+785:           }
+786: 
+787:         } catch (Exception e) {
+788:           System.out.println("Malfunction!!");
+789:           System.exit(0);
+790:         }
+791: 
+792:       }
+793:         break;
+794: 
+//View rules of the game
+795:       case 3: {
+796:         String h4 = "Rules";
+797:         String u4 = h4.replaceAll(".", "=");
+798:         System.out.println(u4);
+799:         System.out.println(h4);
+800:         System.out.println(u4);
+801:         System.out.println(h4);
+802: 
+803:         JFrame f = new JFrame("Dicezy rule are like Yahtzee rules");
+804: 
+//Show rules using URL
+805:         f.setSize(new Dimension(500, 500));
+806:         JEditorPane w;
+807:         try {
+808:           w = new JEditorPane("http://www.scit.wlv.ac.uk/~in6659/abominodo/");
+809: 
+810:         } catch (Exception e) {
+811:           w = new JEditorPane("text/plain",
+812:               "Problems retrieving the rules from the Internet");
+813:         }
+814:         f.setContentPane(new JScrollPane(w));
+815:         f.setVisible(true);
+816:         f.setDefaultCloseOperation(JFrame.DISPOSE_ON_CLOSE);
+817: 
+818:         break;
+819: 
+820:       }
+//Multiplayer play options
+821:       case 4:
+822:         System.out
+823:             .println("Please enter the ip address of your opponent's computer");
+824:         InetAddress ipa = IOLibrary.getIPAddress();
+825:         new ConnectionGenius(ipa).fireUpGame();
+826:       }
+827: 
+828:     }
+829: 
+830:   }
+831: 
+//Record the score to score.txt file with time
+832:   private void recordTheScore() {
+833:     try {
+834:       PrintWriter pw = new PrintWriter(new FileWriter("score.txt", true));
+835:       String n = playerName.replaceAll(",", "_");
+836:       pw.print(n);
+837:       pw.print(",");
+838:       pw.print(score);
+839:       pw.print(",");
+840:       pw.println(System.currentTimeMillis());
+841:       pw.flush();
+842:       pw.close();
+843:     } catch (Exception e) {
+844:       System.out.println("Something went wrong saving scores");
+845:     }
+846:   }
+847: 
+
+//Main run method of the program
+848:   public static void main(String[] args) {
+849:     new Aardvark().run();
+850:   }
+851: 
+//Picture Frame
+852:   public void drawDominoes(Graphics g) {
+853:     for (Domino d : _d) {
+854:       pf.dp.drawDomino(g, d);
+855:     }
+856:   }
+857: 
+858:   public static int gecko(int _) {
+859:     if (_ == (32 & 16)) {
+860:       return -7;
+861:     } else {
+862:       if (_ < 0) {
+863:         return gecko(_ + 1 | 0);
+864:       } else {
+865:         return gecko(_ - 1 | 0);
+866:       }
+867:     }
+868:   }
+869: 
+//Picture Frame
+870:   public void drawGuesses(Graphics g) {
+871:     for (Domino d : _g) {
+872:       pf.dp.drawDomino(g, d);
+873:     }
+874:   }
+875: 
+876: }
